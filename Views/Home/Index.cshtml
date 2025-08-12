@@ -1,0 +1,179 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to Image Compressor</h1>
+    <p>Upload images and download them in compressed format for optimal file sizes.</p>
+</div>
+
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header text-center">
+            <h3>Image Upload & Compression</h3>
+        </div>
+        <div class="card-body">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success">@TempData["Success"]</div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">@TempData["Error"]</div>
+            }
+            @if (TempData["Warning"] != null)
+            {
+                <div class="alert alert-warning">@TempData["Warning"]</div>
+            }
+
+            <form asp-action="UploadImage" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="imageFile" class="form-label">Choose Image File</label>
+                    <input type="file" class="form-control" name="imageFile" accept="image/*" required>
+                    <div class="form-text">Supported image formats: JPEG, PNG, WebP. Compressed downloads available for image files.</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Image</button>
+            </form>
+
+            @if (TempData["UploadedImagePath"] != null)
+            {
+                <div class="mt-4">
+                    <h5>Uploaded Image:</h5>
+                    @{
+                        var filePath = TempData["UploadedImagePath"]?.ToString();
+                        var imageId = TempData["UploadedImageId"];
+                        var isImageFormat = TempData["IsImageFormat"] as bool? ?? false;
+                        var isImage = !string.IsNullOrEmpty(filePath) && 
+                                     (filePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                      filePath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                      filePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                      filePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ||
+                                      filePath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ||
+                                      filePath.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase));
+                    }
+                    
+                    @if (isImage)
+                    {
+                        <img src="@filePath" alt="Uploaded" class="img-fluid" style="max-height: 300px; border: 1px solid #ddd; border-radius: 8px;">
+                    }
+                    else
+                    {
+                        <p class="text-muted">File uploaded successfully. Preview not available for this file type.</p>
+                    }
+                    
+                    <div class="mt-2">
+                        <a class="btn btn-success" href="@filePath" target="_blank">View</a>
+                        @if (imageId != null)
+                        {
+                            <a class="btn btn-primary" href="@Url.Action("DownloadOriginal", "Home", new { id = imageId })">Download Original</a>
+                            @if (isImageFormat)
+                            {
+                                <a class="btn btn-warning" href="@Url.Action("DownloadCompressed", "Home", new { id = imageId, quality = 75 })">Download Compressed</a>
+                            }
+                        }
+                        else
+                        {
+                            <a class="btn btn-primary" href="@Url.Action("DownloadImage", "Home", new { filePath = filePath })">Download</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (ViewBag.RecentImages != null && ((List<Image_Compress.Models.UploadedImage>)ViewBag.RecentImages).Any())
+    {
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Recent Uploads</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @foreach (var image in (List<Image_Compress.Models.UploadedImage>)ViewBag.RecentImages)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                @if (!string.IsNullOrEmpty(image.FilePath))
+                                {
+                                    var isValidImage = image.FilePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                                      image.FilePath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                                      image.FilePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                                      image.FilePath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+                                    
+                                    if (isValidImage)
+                                    {
+                                        <img src="@image.FilePath" class="card-img-top" style="height: 200px; object-fit: cover;">
+                                    }
+                                    else
+                                    {
+                                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                                            <i class="fas fa-file fa-3x text-muted"></i>
+                                        </div>
+                                    }
+                                }
+                                <div class="card-body">
+                                    <h6 class="card-title">@image.OriginalFileName</h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <strong>Original:</strong> @(image.FileSizeBytes / 1024) KB<br>
+                                            @{
+                                                var canCompress = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" }
+                                                    .Contains(image.ContentType?.ToLower());
+                                            }
+                                            @if (canCompress)
+                                            {
+                                                <span class="text-success compressed-size-info" data-image-id="@image.Id">
+                                                    <strong>Compressed:</strong> <span class="loading-text">Calculating...</span>
+                                                </span><br>
+                                            }
+                                            <strong>Uploaded:</strong> @image.UploadedAt.ToString("MMM dd, yyyy")
+                                        </small>
+                                    </p>
+                                    <div class="btn-group-vertical w-100" role="group">
+                                        <a href="@Url.Action("DownloadOriginal", "Home", new { id = image.Id })" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-download"></i> Download Original
+                                        </a>
+                                        @if (canCompress)
+                                        {
+                                            <a href="@Url.Action("DownloadCompressed", "Home", new { id = image.Id, quality = 75 })" class="btn btn-warning btn-sm">
+                                                <i class="fas fa-compress-alt"></i> Download Compressed
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="text-center">
+                    <a href="@Url.Action("ImageGallery", "Home")" class="btn btn-info">View All Images</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load actual compressed sizes for all images
+            document.querySelectorAll('.compressed-size-info').forEach(function(element) {
+                const imageId = element.dataset.imageId;
+                
+                fetch(`/Home/GetCompressedSize?id=${imageId}&quality=75`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            element.innerHTML = `<strong>Compressed:</strong> ${data.compressedSize} KB <small>(${data.compressionRatio}% reduction)</small>`;
+                        } else {
+                            element.innerHTML = `<strong>Compressed:</strong> <span class="text-muted">Error</span>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        element.innerHTML = `<strong>Compressed:</strong> <span class="text-muted">Error</span>`;
+                    });
+            });
+        });
+    </script>
+}

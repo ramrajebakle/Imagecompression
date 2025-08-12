@@ -1,0 +1,124 @@
+@model List<Image_Compress.Models.UploadedImage>
+@{
+    ViewData["Title"] = "Image Gallery";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Image Gallery</h2>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-primary mb-3">Upload New Image</a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <div class="row">
+        @if (Model?.Any() == true)
+        {
+            @foreach (var image in Model)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        @if (!string.IsNullOrEmpty(image.FilePath))
+                        {
+                            var isValidImage = image.FilePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                              image.FilePath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                              image.FilePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                              image.FilePath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+                            
+                            if (isValidImage)
+                            {
+                                <img src="@image.FilePath" class="card-img-top" style="height: 250px; object-fit: cover;">
+                            }
+                            else
+                            {
+                                <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 250px;">
+                                    <i class="fas fa-file fa-4x text-muted"></i>
+                                </div>
+                            }
+                        }
+                        <div class="card-body">
+                            <h6 class="card-title">@image.OriginalFileName</h6>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    <strong>Original Size:</strong> @Math.Round(image.FileSizeBytes / 1024.0, 1) KB<br>
+                                    @if (new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" }.Contains(image.ContentType?.ToLower()))
+                                    {
+                                        <span class="text-success compressed-size-info" data-image-id="@image.Id">
+                                            <strong>Compressed Size:</strong> <span class="loading-text">Calculating...</span>
+                                        </span><br>
+                                    }
+                                    <strong>Type:</strong> @image.ContentType<br>
+                                    <strong>Uploaded:</strong> @image.UploadedAt.ToString("MMM dd, yyyy HH:mm")
+                                </small>
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group d-flex" role="group">
+                                <a href="@Url.Action("DownloadOriginal", "Home", new { id = image.Id })" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download"></i> Original
+                                </a>
+                                @if (new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" }.Contains(image.ContentType?.ToLower()))
+                                {
+                                    <a href="@Url.Action("DownloadCompressed", "Home", new { id = image.Id, quality = 75 })" 
+                                       class="btn btn-warning btn-sm">
+                                        <i class="fas fa-compress-alt"></i> Compressed
+                                    </a>
+                                }
+                                <form asp-action="DeleteImage" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this image?')">
+                                    <input type="hidden" name="id" value="@image.Id" />
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h4>No Images Found</h4>
+                    <p>You haven't uploaded any images yet. <a href="@Url.Action("Index", "Home")">Upload your first image</a> to get started!</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load actual compressed sizes for all images
+            document.querySelectorAll('.compressed-size-info').forEach(function(element) {
+                const imageId = element.dataset.imageId;
+                
+                fetch(`/Home/GetCompressedSize?id=${imageId}&quality=75`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            element.innerHTML = `<strong>Compressed Size:</strong> ${data.compressedSize} KB <small>(${data.compressionRatio}% reduction)</small>`;
+                        } else {
+                            element.innerHTML = `<strong>Compressed Size:</strong> <span class="text-muted">Error calculating</span>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        element.innerHTML = `<strong>Compressed Size:</strong> <span class="text-muted">Error loading</span>`;
+                    });
+            });
+        });
+    </script>
+}
