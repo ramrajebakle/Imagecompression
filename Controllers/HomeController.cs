@@ -53,7 +53,6 @@ namespace Image_Compress.Controllers
                 TempData["Error"] = "Please select a file to upload.";
                 return RedirectToAction("Index");
             }
-
             // Get file extension (allow any extension) with length validation
             var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
             if (string.IsNullOrEmpty(fileExtension))
